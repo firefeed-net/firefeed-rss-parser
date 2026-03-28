@@ -1,0 +1,1 @@
+# FireFeed RSS Parser package
