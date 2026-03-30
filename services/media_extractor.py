@@ -8,6 +8,8 @@ from bs4 import BeautifulSoup
 from firefeed_core.exceptions import ServiceUnavailableException, ServiceException
 from utils.retry import retry_on_network_error, retry_on_parsing_error
 from utils.validation import validate_url
+from utils.image import ImageProcessor
+from config.firefeed_rss_parser_config import get_config
 
 
 logger = logging.getLogger(__name__)
@@ -27,28 +29,48 @@ class MediaExtractor:
         self.timeout = timeout or 15.0
     
     @retry_on_network_error(max_retries=2, base_delay=0.5)
-    async def extract_media(self, url: str) -> Optional[Dict[str, Any]]:
+    async def extract_media(self, url: str, rss_item_id: str, config=None) -> Optional[Dict[str, Any]]:
         """
-        Extract media content from URL.
+        Extract and save media content from URL.
         
         Args:
             url: URL to extract media from
+            rss_item_id: ID for saving file name
+            config: Config object
             
         Returns:
-            Media content information or None if extraction fails
+            Media information with local_path or None
         """
-        if not validate_url(url):
-            logger.warning(f"Invalid URL for media extraction: {url}")
+        if not validate_url(url) or not rss_item_id:
+            logger.warning(f"Invalid URL or no rss_item_id for media extraction: {url}")
             return None
+        
+        config = config or get_config()
         
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(url)
                 response.raise_for_status()
                 
-                return await self._parse_html_for_media(response.text, url)
+                media_info = await self._parse_html_for_media(response.text, url)
+                if not media_info:
+                    return None
                 
-        except httpx.TimeoutException as e:
+                # If image, download and save
+                if media_info.get('type') == 'image':
+                    img_url = media_info['url']
+                    local_path = await ImageProcessor.process_image_from_url(img_url, rss_item_id)
+                    if local_path:
+                        media_info['local_path'] = local_path
+                        logger.info(f"Image saved at local_path: {local_path}")
+                    else:
+                        logger.warning(f"Failed to save image from {img_url}")
+                
+                return media_info
+                
+        except Exception as e:
+            logger.error(f"Error extracting media from {url}: {e}")
+            raise ServiceUnavailableException(f"Failed to extract media from {url}", url, e)
             logger.error(f"Media extraction timeout for {url}: {e}")
             raise ServiceUnavailableException(f"Timeout extracting media from {url}", url, e)
         except httpx.HTTPStatusError as e:

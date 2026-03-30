@@ -73,9 +73,22 @@ def duplicate_check_timeout(self) -> float:
     return 5.0
 
 @property
+def images_root_dir(self) -> str:
+    """Get images root directory."""
+    return os.getenv("IMAGES_ROOT_DIR", "/app/media")
+
+@property
+def image_file_extensions(self) -> list:
+    """Get supported image file extensions."""
+    return [
+        ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg"
+    ]
+
+@property
 def log_level(self) -> str:
     """Get log level."""
     return os.getenv("LOG_LEVEL", "INFO")
+
 
 # Add properties to config instance
 config.base_url = base_url
@@ -89,7 +102,10 @@ config.parser_timeout = parser_timeout
 config.storage_timeout = storage_timeout
 config.media_timeout = media_timeout
 config.duplicate_check_timeout = duplicate_check_timeout
+config.images_root_dir = images_root_dir
+config.image_file_extensions = image_file_extensions
 config.log_level = log_level
+
 
 
 def setup_logging():

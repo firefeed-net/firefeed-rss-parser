@@ -12,6 +12,7 @@ loguru>=0.7.0
 email-validator>=2.1.0
 Pillow>=10.0.0
 validators>=0.22.0
+aiofiles>=23.0.0
 
 # FireFeed Core dependencies
 firefeed-core==1.0.1

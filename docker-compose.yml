@@ -19,6 +19,8 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
+      - ./data/media:/app/media
+
     ports:
       - "8080:8080"  # Metrics
       - "8081:8081"  # Health checks

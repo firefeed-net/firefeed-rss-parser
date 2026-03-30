@@ -80,13 +80,17 @@ class RSSManager:
                         logger.info(f"Skipping duplicate item: {rss_item.original_title}")
                         continue
                     
-                    # Extract media
+                    # Extract and save media
                     try:
-                        media = await self.media_extractor.extract_media(rss_item.source_url)
+                        from config.firefeed_rss_parser_config import get_config
+                        config = get_config()
+                        media = await self.media_extractor.extract_media(rss_item.source_url, rss_item.news_id, config)
                         if media and isinstance(media, dict):
-                            rss_item.image_filename = media.get('url')
+                            rss_item.image_filename = media.get('local_path') or media.get('url')
+                            logger.info(f"Media processed for item {rss_item.news_id}: {rss_item.image_filename}")
                     except Exception as e:
                         logger.warning(f"Failed to extract media for {rss_item.source_url}: {e}")
+
                     
                     # Save item
                     item_id = await self.storage.save_rss_item(rss_item)
