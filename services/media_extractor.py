@@ -68,9 +68,7 @@ class MediaExtractor:
                 
                 return media_info
                 
-        except Exception as e:
-            logger.error(f"Error extracting media from {url}: {e}")
-            raise ServiceUnavailableException(f"Failed to extract media from {url}", url, e)
+        except httpx.TimeoutException as e:
             logger.error(f"Media extraction timeout for {url}: {e}")
             raise ServiceUnavailableException(f"Timeout extracting media from {url}", url, e)
         except httpx.HTTPStatusError as e:

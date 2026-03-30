@@ -30,17 +30,17 @@ def api_key(self) -> Optional[str]:
 @property
 def timeout(self) -> float:
     """Get FireFeed API timeout."""
-    return float(os.getenv("FIREFEED_TIMEOUT", "30.0"))
+    return float(os.getenv("FETCH_TIMEOUT", "30"))
 
 @property
 def max_retries(self) -> int:
     """Get FireFeed API max retries."""
-    return int(os.getenv("FIREFEED_MAX_RETRIES", "3"))
+    return int(os.getenv("MAX_RETRIES", "3"))
 
 @property
 def retry_delay(self) -> float:
     """Get FireFeed API retry delay."""
-    return float(os.getenv("FIREFEED_RETRY_DELAY", "1.0"))
+    return float(os.getenv("RETRY_DELAY", "1.0"))
 
 @property
 def max_concurrent_feeds(self) -> int:
@@ -88,25 +88,6 @@ def image_file_extensions(self) -> list:
 def log_level(self) -> str:
     """Get log level."""
     return os.getenv("LOG_LEVEL", "INFO")
-
-
-# Add properties to config instance
-config.base_url = base_url
-config.api_key = api_key
-config.timeout = timeout
-config.max_retries = max_retries
-config.retry_delay = retry_delay
-config.max_concurrent_feeds = max_concurrent_feeds
-config.fetch_timeout = fetch_timeout
-config.parser_timeout = parser_timeout
-config.storage_timeout = storage_timeout
-config.media_timeout = media_timeout
-config.duplicate_check_timeout = duplicate_check_timeout
-config.images_root_dir = images_root_dir
-config.image_file_extensions = image_file_extensions
-config.log_level = log_level
-
-
 
 def setup_logging():
     """Setup logging configuration using firefeed_core."""

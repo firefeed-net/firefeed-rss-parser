@@ -89,7 +89,11 @@ class RSSManager:
                             rss_item.image_filename = media.get('local_path') or media.get('url')
                             logger.info(f"Media processed for item {rss_item.news_id}: {rss_item.image_filename}")
                     except Exception as e:
-                        logger.warning(f"Failed to extract media for {rss_item.source_url}: {e}")
+                        # Handle both HTTPStatusError and other exceptions
+                        error_msg = str(e)
+                        if hasattr(e, 'response') and hasattr(e.response, 'status_code'):
+                            error_msg = f"HTTP {e.response.status_code} error"
+                        logger.warning(f"Failed to extract media for {rss_item.source_url}: {error_msg}")
 
                     
                     # Save item
