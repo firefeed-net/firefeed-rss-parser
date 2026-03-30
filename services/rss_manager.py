@@ -84,23 +84,56 @@ class RSSManager:
                     item_id = await self.storage.save_rss_item(rss_item)
                     if item_id:
                         processed_count += 1
-                        logger.info(f"Successfully saved item ID {item_id}: {rss_item.original_title}")
+                        logger.info(f"Successfully saved RSS item to DB (ID: {item_id}): {rss_item.original_title}")
                     else:
-                        logger.error(f"Failed to save item: {rss_item.original_title}")
+                        logger.error(f"Failed to save RSS item to DB: {rss_item.original_title}")
                         continue
                     
-                    # Extract media after save (optional, non-blocking)
+                    # === POST-SAVE PROCESSING ===
+                    post_save_errors = []
+                    
+                    # 1. Extract and update media (non-blocking)
                     try:
                         from config.firefeed_rss_parser_config import get_config
                         config = get_config()
                         media = await self.media_extractor.extract_media(rss_item.source_url, rss_item.news_id, config)
                         if media and isinstance(media, dict) and media.get('local_path'):
-                            # Update item with image
                             rss_item.image_filename = media['local_path']
                             await self.storage.update_rss_item(item_id, rss_item)
-                            logger.info(f"Updated item {item_id} with media: {media['local_path']}")
-                    except Exception as e:
-                        logger.warning(f"Failed to extract/update media for {rss_item.source_url}: {str(e)}")
+                            logger.info(f"✓ Media updated for item {item_id}: {media['local_path']}")
+                        else:
+                            logger.debug(f"No media found for {rss_item.source_url}")
+                    except Exception as media_exc:
+                        media_error = f"Media extraction failed: {str(media_exc)}"
+                        post_save_errors.append(media_error)
+                        logger.warning(f"⚠ {media_error}")
+                    
+                    # 2. Final duplicate check/update if needed (non-blocking)
+                    try:
+                        if await self.duplicate_detector.is_duplicate(rss_item):
+                            logger.info(f"Item {item_id} marked as duplicate after processing")
+                            # Could update status here if needed
+                    except Exception as dup_exc:
+                        dup_error = f"Final duplicate check failed: {str(dup_exc)}"
+                        post_save_errors.append(dup_error)
+                        logger.warning(f"⚠ {dup_error}")
+                    
+                    # 3. Translation (if configured, non-blocking)
+                    try:
+                        # Placeholder for translation if implemented
+                        pass
+                    except Exception as trans_exc:
+                        trans_error = f"Translation failed: {str(trans_exc)}"
+                        post_save_errors.append(trans_error)
+                        logger.warning(f"⚠ {trans_error}")
+                    
+                    # Log post-save summary
+                    if post_save_errors:
+                        logger.error(f"Post-save processing had {len(post_save_errors)} errors for '{rss_item.original_title}': {'; '.join(post_save_errors)}")
+                        logger.info(f"Item still saved to DB (ID: {item_id}) despite post-save errors")
+                    else:
+                        logger.info(f"✓ Fully processed item {item_id}: {rss_item.original_title}")
+
                         
                 except Exception as e:
                     logger.error(f"Error processing item {item_data.get('title', 'unknown')}: {str(e)}")
