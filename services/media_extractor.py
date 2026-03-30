@@ -72,8 +72,13 @@ class MediaExtractor:
             logger.error(f"Media extraction timeout for {url}: {e}")
             raise ServiceUnavailableException(f"Timeout extracting media from {url}", url, e)
         except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error {e.response.status_code} for {url}: {e}")
-            raise ServiceUnavailableException(f"HTTP error extracting media from {url}", url, e)
+            status_code = e.response.status_code
+            if 400 <= status_code < 500:
+                logger.warning(f"Client error {status_code} for {url} (e.g. paywall), skipping media")
+                return None
+            else:
+                logger.error(f"Server error {status_code} for {url}: {e}")
+                raise ServiceUnavailableException(f"HTTP error extracting media from {url}", url, e)
         except Exception as e:
             logger.error(f"Error extracting media from {url}: {e}")
             raise ServiceUnavailableException(f"Failed to extract media from {url}", url, e)

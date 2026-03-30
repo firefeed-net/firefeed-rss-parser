@@ -1,10 +1,11 @@
 """Duplicate detection service for RSS items."""
 
+import asyncio
 import logging
 from typing import Optional, List, Dict, Any
 from models import RSSItem
 from firefeed_core.exceptions import ServiceUnavailableException, ValidationException
-from utils.retry import retry_on_network_error
+from utils.retry import retry_on_rate_limit
 from firefeed_core.api_client.client import APIClient
 
 
@@ -32,7 +33,6 @@ class DuplicateDetector:
             max_retries=max_retries or 3
         )
     
-    @retry_on_network_error(max_retries=2, base_delay=0.5)
     async def is_duplicate(self, item: RSSItem) -> bool:
         """
         Check if RSS item is a duplicate.
@@ -51,21 +51,24 @@ class DuplicateDetector:
             if await self._check_news_id_duplicate(item.news_id):
                 logger.info(f"Duplicate found by news_id: {item.news_id}")
                 return True
+            await asyncio.sleep(0.5)  # Rate limit backoff
         
         # Check by source_url if news_id is not available
         if item.source_url:
             if await self._check_link_duplicate(item.source_url):
                 logger.info(f"Duplicate found by link: {item.source_url}")
                 return True
+            await asyncio.sleep(0.5)
         
         # Check by title as last resort (less reliable)
         if item.original_title:
             if await self._check_title_duplicate(item.original_title):
                 logger.info(f"Duplicate found by title: {item.original_title}")
                 return True
-        
+            
         return False
     
+    @retry_on_rate_limit(max_retries=3, base_delay=1.0)
     async def _check_news_id_duplicate(self, news_id: str) -> bool:
         """
         Check for duplicate by news_id.
@@ -101,6 +104,7 @@ class DuplicateDetector:
             logger.error(f"Error checking GUID duplicate for {guid}: {e}")
             return False
     
+    @retry_on_rate_limit(max_retries=3, base_delay=1.0)
     async def _check_link_duplicate(self, link: str) -> bool:
         """
         Check for duplicate by link.
@@ -119,6 +123,7 @@ class DuplicateDetector:
             logger.error(f"Error checking link duplicate for {link}: {e}")
             return False
     
+    @retry_on_rate_limit(max_retries=3, base_delay=1.0)
     async def _check_title_duplicate(self, title: str) -> bool:
         """
         Check for duplicate by title.
@@ -185,3 +190,4 @@ class DuplicateDetector:
         except Exception as e:
             logger.error(f"Error fetching RSS items list: {e}")
             return []
+

@@ -80,32 +80,30 @@ class RSSManager:
                         logger.info(f"Skipping duplicate item: {rss_item.original_title}")
                         continue
                     
-                    # Extract and save media
+                    # Save item first
+                    item_id = await self.storage.save_rss_item(rss_item)
+                    if item_id:
+                        processed_count += 1
+                        logger.info(f"Successfully saved item ID {item_id}: {rss_item.original_title}")
+                    else:
+                        logger.error(f"Failed to save item: {rss_item.original_title}")
+                        continue
+                    
+                    # Extract media after save (optional, non-blocking)
                     try:
                         from config.firefeed_rss_parser_config import get_config
                         config = get_config()
                         media = await self.media_extractor.extract_media(rss_item.source_url, rss_item.news_id, config)
-                        if media and isinstance(media, dict):
-                            rss_item.image_filename = media.get('local_path') or media.get('url')
-                            logger.info(f"Media processed for item {rss_item.news_id}: {rss_item.image_filename}")
+                        if media and isinstance(media, dict) and media.get('local_path'):
+                            # Update item with image
+                            rss_item.image_filename = media['local_path']
+                            await self.storage.update_rss_item(item_id, rss_item)
+                            logger.info(f"Updated item {item_id} with media: {media['local_path']}")
                     except Exception as e:
-                        # Handle both HTTPStatusError and other exceptions
-                        error_msg = str(e)
-                        if hasattr(e, 'response') and hasattr(e.response, 'status_code'):
-                            error_msg = f"HTTP {e.response.status_code} error"
-                        logger.warning(f"Failed to extract media for {rss_item.source_url}: {error_msg}")
-
-                    
-                    # Save item
-                    item_id = await self.storage.save_rss_item(rss_item)
-                    if item_id:
-                        processed_count += 1
-                        logger.info(f"Successfully processed item: {rss_item.original_title}")
-                    else:
-                        logger.error(f"Failed to save item: {rss_item.original_title}")
+                        logger.warning(f"Failed to extract/update media for {rss_item.source_url}: {str(e)}")
                         
                 except Exception as e:
-                    logger.error(f"Error processing item: {e}")
+                    logger.error(f"Error processing item {item_data.get('title', 'unknown')}: {str(e)}")
                     continue
             
             logger.info(f"Completed processing feed {feed.name}: {processed_count} items processed")
@@ -118,7 +116,7 @@ class RSSManager:
             logger.error(f"Service error processing feed {feed.name}: {e}")
             return False
         except Exception as e:
-            logger.error(f"Unexpected error processing feed {feed.name}: {e}")
+            logger.error(f"Unexpected error processing feed {feed.name}: {str(e)}")
             return False
     
     def _create_rss_item(self, item_data: dict, feed: RSSFeed) -> RSSItem:
@@ -199,8 +197,7 @@ class RSSManager:
                     
             except Exception as e:
                 results['failed_feeds'] += 1
-                # Handle exception that might be a string or object
-                error_str = str(e) if hasattr(e, '__str__') else repr(e)
+                error_str = str(e)
                 error_msg = f"Error processing feed {feed_data.get('name', 'Unknown')}: {error_str}"
                 results['errors'].append(error_msg)
                 logger.error(error_msg)
@@ -236,3 +233,4 @@ class RSSManager:
             await self.duplicate_detector.cleanup()
         if hasattr(self.storage, 'cleanup'):
             await self.storage.cleanup()
+
