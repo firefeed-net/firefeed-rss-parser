@@ -48,10 +48,6 @@ def get_fetch_timeout() -> float:
     """Get fetch timeout."""
     return float(os.getenv("RSS_REQUEST_TIMEOUT", "15"))
 
-def get_parser_timeout() -> float:
-    """Get parser timeout."""
-    return 10.0
-
 def get_storage_timeout() -> float:
     """Get storage timeout."""
     return 30.0

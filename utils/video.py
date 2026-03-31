@@ -34,15 +34,18 @@ class VideoProcessor:
         else:
             save_directory = Path(save_directory)
 
-        # Use current time to form path
-        created_at = datetime.now()
-        date_path = created_at.strftime("%Y/%m/%d")
-        full_save_directory = save_directory / date_path
-        full_save_directory.mkdir(parents=True, exist_ok=True)
+        save_directory.mkdir(parents=True, exist_ok=True)
 
-        logger.debug(f"[DEBUG] Starting to save video from {url} to {full_save_directory}")
+        try:
+            # Use current time to form path
+            created_at = datetime.now()
+            date_path = created_at.strftime("%Y/%m/%d")
+            full_save_directory = save_directory / date_path
+            full_save_directory.mkdir(parents=True, exist_ok=True)
 
-        headers = {
+            logger.debug(f"[DEBUG] Starting to save video from {url} to {full_save_directory}")
+
+            headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,video/webm,video/ogg,video/*,*/*;q=0.8",
                 "Accept-Language": "en-US,en;q=0.5",
@@ -60,7 +63,7 @@ class VideoProcessor:
                     content_lower = content_type.lower()
                     extension = ".mp4"
 
-                    # Get video file extensions from config
+                    # Get video file extensions (hardcoded for now)
                     video_extensions = [".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm", ".m4v"]
 
                     # Check content_type
@@ -96,10 +99,10 @@ class VideoProcessor:
                     async with aiofiles.open(file_path, "wb") as f:
                         await f.write(content)
 
-            logger.info(f"[LOG] Video successfully saved: {file_path}")
-            # Return relative path from save_directory
-            relative_path = os.path.relpath(file_path, save_directory)
-            return relative_path
+                    logger.info(f"[LOG] Video successfully saved: {file_path}")
+                    # Return relative path from save_directory
+                    relative_path = os.path.relpath(file_path, save_directory)
+                    return relative_path
 
         except OSError as e:
             logger.warning(
@@ -123,3 +126,4 @@ class VideoProcessor:
             return None
 
         return await VideoProcessor.download_and_save_video(url, rss_item_id)
+

@@ -61,7 +61,7 @@ class RSSStorage:
             result = await self.api_client.post("/api/v1/internal/rss/items", json_data=item_data)
             
             logger.info(f"Successfully saved RSS item: {item.original_title}")
-            return result.get("id")
+            return result.get("news_id")
             
         except ValidationException as e:
             logger.error(f"Validation error saving RSS item: {e}")

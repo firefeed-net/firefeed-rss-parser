@@ -29,7 +29,7 @@ class HealthChecker:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f"{self.config.FIREFEED_API_BASE_URL}/api/v1/health",
-                    headers={"Authorization": f"Bearer {self.config.FIREFEED_API_TOKEN or os.getenv('RSS_PARSER_TOKEN', '')}"},
+                    headers={"Authorization": f"Bearer {os.getenv('RSS_PARSER_TOKEN', '')}"},
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     return {

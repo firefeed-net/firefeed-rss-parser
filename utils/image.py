@@ -44,9 +44,9 @@ class ImageProcessor:
             created_at = datetime.now()
             date_path = created_at.strftime("%Y/%m/%d")
             full_save_directory = save_directory / date_path
+            full_save_directory.mkdir(parents=True, exist_ok=True)
 
             logger.debug(f"[DEBUG] Starting to save image from {url} to {full_save_directory}")
-            # os.makedirs(full_save_directory, exist_ok=True) redundant with Path.mkdir
 
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -69,7 +69,6 @@ class ImageProcessor:
                     # Get image file extensions from config
                     config_obj = get_config()
                     image_extensions = config_obj.image_file_extensions
-
 
                     # Check content_type
                     for ext in image_extensions:
@@ -189,3 +188,4 @@ class ImageProcessor:
         except Exception as e:
             logger.warning(f"[WARN] Error extracting image from {url}: {e}")
             return None
+

@@ -111,7 +111,7 @@ def retry_on_parsing_error(max_retries: int = 2, base_delay: float = 0.5):
     )
 
 
-def retry_on_rate_limit(max_retries: int = 10, base_delay: float = 1.0):
+def retry_on_rate_limit(max_retries: int = 10, base_delay: float = 2.0):
     """
     Decorator for retrying on RateLimitException with dynamic backoff using retry_after.
     """
