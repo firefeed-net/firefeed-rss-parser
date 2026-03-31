@@ -51,14 +51,14 @@ class DuplicateDetector:
             if await self._check_news_id_duplicate(item.news_id):
                 logger.info(f"Duplicate found by news_id: {item.news_id}")
                 return True
-            await asyncio.sleep(0.5)  # Rate limit backoff
+            await asyncio.sleep(1.0)  # Increased rate limit backoff
         
         # Check by source_url if news_id is not available
         if item.source_url:
             if await self._check_link_duplicate(item.source_url):
                 logger.info(f"Duplicate found by link: {item.source_url}")
                 return True
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(1.0)
         
         # Check by title as last resort (less reliable)
         if item.original_title:

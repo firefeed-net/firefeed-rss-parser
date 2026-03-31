@@ -27,16 +27,22 @@ class VideoProcessor:
             logger.debug(f"[DEBUG] Video saving skipped: no URL ({url}) or rss_item_id ({rss_item_id})")
             return None
 
-        try:
-            # Use current time to form path
-            created_at = datetime.now()
-            date_path = created_at.strftime("%Y/%m/%d")
-            full_save_directory = os.path.join(save_directory, date_path)
+        from pathlib import Path
+        # Get default save directory - persistent Docker volume (reuse images root)
+        if save_directory is None:
+            save_directory = Path(os.getenv("IMAGES_ROOT_DIR", "/app/data/images"))
+        else:
+            save_directory = Path(save_directory)
 
-            logger.debug(f"[DEBUG] Starting to save video from {url} to {full_save_directory}")
-            os.makedirs(full_save_directory, exist_ok=True)
+        # Use current time to form path
+        created_at = datetime.now()
+        date_path = created_at.strftime("%Y/%m/%d")
+        full_save_directory = save_directory / date_path
+        full_save_directory.mkdir(parents=True, exist_ok=True)
 
-            headers = {
+        logger.debug(f"[DEBUG] Starting to save video from {url} to {full_save_directory}")
+
+        headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,video/webm,video/ogg,video/*,*/*;q=0.8",
                 "Accept-Language": "en-US,en;q=0.5",

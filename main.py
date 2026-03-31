@@ -90,7 +90,7 @@ async def main():
     
     restart_delay = float(os.getenv("RETRY_DELAY", "60.0"))
     
-    loop_interval = float(os.getenv("FETCH_INTERVAL", "300"))
+    loop_interval = float(os.getenv("FETCH_INTERVAL", "600"))
     if loop_interval < 60:
         loop_interval = 60
     logger.info(f"Configuration loaded: loop_interval={loop_interval}s, base_url={api_base_url}")

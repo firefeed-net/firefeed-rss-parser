@@ -80,19 +80,19 @@ class RSSManager:
                         logger.info(f"Skipping duplicate item: {rss_item.original_title}")
                         continue
                     
-                    # Save item first
+                    # Save item first (storage handles retries internally)
                     item_id = await self.storage.save_rss_item(rss_item)
                     if item_id:
                         processed_count += 1
-                        logger.info(f"Successfully saved RSS item to DB (ID: {item_id}): {rss_item.original_title}")
+                        logger.info(f"Successfully saved RSS item via API (ID: {item_id}): {rss_item.original_title}")
                     else:
-                        logger.error(f"Failed to save RSS item to DB: {rss_item.original_title}")
+                        logger.error(f"Failed to save RSS item via API: {rss_item.original_title}")
                         continue
                     
                     # === POST-SAVE PROCESSING ===
                     post_save_errors = []
                     
-                    # 1. Extract and update media (non-blocking)
+                    # 1. Extract and update media (with retry)
                     try:
                         from config.firefeed_rss_parser_config import get_config
                         config = get_config()
@@ -130,7 +130,7 @@ class RSSManager:
                     # Log post-save summary
                     if post_save_errors:
                         logger.error(f"Post-save processing had {len(post_save_errors)} errors for '{rss_item.original_title}': {'; '.join(post_save_errors)}")
-                        logger.info(f"Item still saved to DB (ID: {item_id}) despite post-save errors")
+                        logger.info(f"Item saved via API (ID: {item_id}) despite post-save errors")
                     else:
                         logger.info(f"✓ Fully processed item {item_id}: {rss_item.original_title}")
 

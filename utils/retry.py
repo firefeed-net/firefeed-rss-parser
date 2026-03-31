@@ -111,10 +111,11 @@ def retry_on_parsing_error(max_retries: int = 2, base_delay: float = 0.5):
     )
 
 
-def retry_on_rate_limit(max_retries: int = 5, base_delay: float = 1.0):
+def retry_on_rate_limit(max_retries: int = 10, base_delay: float = 1.0):
     """
     Decorator for retrying on RateLimitException with dynamic backoff using retry_after.
     """
+    import random
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -126,11 +127,13 @@ def retry_on_rate_limit(max_retries: int = 5, base_delay: float = 1.0):
                         logger.error(f'Max rate limit retries ({max_retries}) exceeded for {func.__name__}: {e}')
                         raise
                     retry_after = base_delay * (2 ** attempt)
-                    if 'retry_after=' in str(e):
-                        match = re.search(r'retry_after=(\d+)', str(e))
-                        if match:
-                            retry_after = min(int(match.group(1)), 300)
-                    logger.warning(f'Rate limited for {func.__name__} (attempt {attempt+1}/{max_retries+1}), waiting {retry_after}s')
+                    # Improved regex for retry_after
+                    match = re.search(r'retry_after[=:]?(\d+)', str(e).lower())
+                    if match:
+                        retry_after = min(int(match.group(1)), 300)
+                    # Add jitter to avoid thundering herd
+                    retry_after += random.uniform(0, 1)
+                    logger.warning(f'Rate limited for {func.__name__} (attempt {attempt+1}/{max_retries+1}), waiting {retry_after:.1f}s')
                     await asyncio.sleep(retry_after)
             return None
         return wrapper

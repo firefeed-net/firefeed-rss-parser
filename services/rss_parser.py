@@ -4,6 +4,7 @@ import feedparser
 import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+from dateutil import parser as date_parser
 from firefeed_core.exceptions import ServiceException, ValidationException
 from utils.retry import retry_on_parsing_error
 from utils.validation import validate_rss_content, validate_item_data
@@ -243,17 +244,22 @@ class RSSParser:
         if not date_string:
             return None
         
+        # First try dateutil with fuzzy parsing for GMT/RFC-822
         try:
-            # Use feedparser's date parsing
-            return feedparser._parse_date(date_string)
+            parsed_date = date_parser.parse(str(date_string), fuzzy=True)
+            logger.debug(f"Successfully parsed date with dateutil: {date_string} -> {parsed_date}")
+            return parsed_date
         except Exception:
-            try:
-                # Fallback to datetime parsing
-                from dateutil import parser as date_parser
-                return date_parser.parse(str(date_string))
-            except Exception:
-                logger.warning(f"Could not parse date: {date_string}")
-                return None
+            pass
+        
+        # Fallback to feedparser
+        try:
+            parsed_date = feedparser._parse_date(date_string)
+            logger.debug(f"Successfully parsed date with feedparser: {date_string} -> {parsed_date}")
+            return parsed_date
+        except Exception:
+            logger.warning(f"Could not parse date: {date_string}")
+            return None
     
     async def parse_multiple_feeds(self, feeds_content: List[str]) -> List[Optional[Dict[str, Any]]]:
         """
