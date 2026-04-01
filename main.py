@@ -20,7 +20,7 @@ async def get_feeds_to_process(api_client: APIClient) -> list:
     """Get RSS feeds that need to be processed."""
     params = {"page": 1, "size": 100}
     response = await api_client.get("/api/v1/internal/rss/feeds", params=params)
-    return response.get("data", [])
+    return response.get("data", []) if isinstance(response, dict) else []
 
 
 async def main():
@@ -38,46 +38,26 @@ async def main():
     parser_timeout = float(os.getenv("PARSER_TIMEOUT", "10.0"))
     max_retries = int(os.getenv("MAX_RETRIES", "3"))
     
-    # Initialize services that can be reused across cycles
-    rss_parser_token = os.getenv("RSS_PARSER_TOKEN", "")
-    
-    if not rss_parser_token:
-        logger.warning("RSS_PARSER_TOKEN environment variable not set")
-
     # Initialize API client once and reuse it
+    api_token = os.getenv("SERVICE_API_TOKEN", "")
+    if not api_token:
+        logger.error("SERVICE_API_TOKEN missing - cannot connect to API")
+        raise ValueError("SERVICE_API_TOKEN required")
+
     api_client = APIClient(
         base_url=api_base_url,
-        token=rss_parser_token,
+        token=api_token,
         service_id="firefeed-rss-parser",
         timeout=fetch_timeout,
         max_retries=max_retries
     )
     
-    # Initialize other services that can be reused
-    rss_fetcher = RSSFetcher(
-        timeout=fetch_timeout,
-        max_retries=max_retries
-    )
-    
-    rss_parser = RSSParser(
-        timeout=parser_timeout,
-        max_retries=max_retries
-    )
-    
-    media_extractor = MediaExtractor(
-        timeout=15.0,
-        max_retries=max_retries
-    )
-    
-    duplicate_detector = DuplicateDetector(
-        timeout=5.0,
-        max_retries=max_retries
-    )
-    
-    rss_storage = RSSStorage(
-        timeout=30.0,
-        max_retries=max_retries
-    )
+    # Initialize services
+    rss_fetcher = RSSFetcher(timeout=fetch_timeout, max_retries=max_retries)
+    rss_parser = RSSParser(timeout=parser_timeout, max_retries=max_retries)
+    media_extractor = MediaExtractor(timeout=15.0, max_retries=max_retries)
+    duplicate_detector = DuplicateDetector()
+    rss_storage = RSSStorage(timeout=30.0, max_retries=max_retries)
     
     rss_manager = RSSManager(
         fetcher=rss_fetcher,
@@ -89,53 +69,26 @@ async def main():
     )
     
     restart_delay = float(os.getenv("RETRY_DELAY", "60.0"))
-    
     loop_interval = float(os.getenv("FETCH_INTERVAL", "600"))
     if loop_interval < 60:
         loop_interval = 60
-    logger.info(f"Configuration loaded: loop_interval={loop_interval}s, base_url={api_base_url}")
+    logger.info(f"Configuration: loop_interval={loop_interval}s")
     
     try:
         while True:
             try:
-                cycle_id = int(time.time())
-                cycle_start_time = time.time()
-                logger.info("RSS cycle started", extra={
-                    "event": "rss_cycle_start",
-                    "cycle_id": cycle_id
-                })
+                logger.info("RSS cycle started")
                 
-                # Get RSS feeds with error handling
-                logger.info("Fetching RSS feeds...")
-                try:
-                    feeds = await get_feeds_to_process(api_client)
-                except Exception as api_err:
-                    logger.exception("API feeds fetch failed, backoff")
-                    await asyncio.sleep(restart_delay)
-                    continue
-                
+                feeds = await get_feeds_to_process(api_client)
                 if not feeds:
-                    enable_fallback = os.getenv("ENABLE_FALLBACK_FEEDS", "false").lower() == "true"
-                    if enable_fallback:
-                        logger.info("Using fallback feeds (BBC)")
-                        feeds = [{"id": 1, "url": "https://feeds.bbci.co.uk/news/rss.xml", "name": "BBC News", "language": "en", "is_active": True}]
-                    else:
-                        logger.info("No feeds available, skipping cycle")
-                        await asyncio.sleep(loop_interval)
-                        continue
+                    logger.info("No feeds available, skipping cycle")
+                    await asyncio.sleep(loop_interval)
+                    continue
                 
                 logger.info(f"Processing {len(feeds)} feeds")
                 await rss_manager.process_feeds(feeds)
                 
-                cycle_end_time = time.time()
-                elapsed = cycle_end_time - cycle_start_time
-                logger.info("RSS cycle completed", extra={
-                    "event": "rss_cycle_complete",
-                    "cycle_id": cycle_id,
-                    "feed_count": len(feeds),
-                    "elapsed_seconds": elapsed
-                })
-                
+                logger.info("RSS cycle completed")
                 await asyncio.sleep(loop_interval)
                 
             except asyncio.CancelledError:
@@ -151,74 +104,35 @@ async def main():
 async def process_single_feed(feed_url: str, user_id: Optional[str] = None) -> dict:
     """Process a single RSS feed."""
     setup_logging()
-
     logger = logging.getLogger(__name__)
     
-    # Load configuration values directly from canonical .env vars
     api_base_url = os.getenv("FIREFEED_API_BASE_URL", "http://localhost:8001")
-    max_concurrent_feeds = int(os.getenv("MAX_CONCURRENT_FEEDS", "10"))
-    fetch_timeout = float(os.getenv("FETCH_TIMEOUT", "15.0"))
-    parser_timeout = float(os.getenv("PARSER_TIMEOUT", "10.0"))
-    max_retries = int(os.getenv("MAX_RETRIES", "3"))
-    
-    # Initialize services
-    rss_parser_token = os.getenv("RSS_PARSER_TOKEN", "")
-    if not rss_parser_token:
-        logger.warning("RSS_PARSER_TOKEN environment variable not set")
     
     api_client = APIClient(
         base_url=api_base_url,
-        token=rss_parser_token,
-        service_id="firefeed-rss-parser-single",
-        timeout=fetch_timeout,
-        max_retries=max_retries
+        token=api_token,
+        service_id="firefeed-rss-parser-single"
     )
     
-    rss_fetcher = RSSFetcher(
-        timeout=fetch_timeout,
-        max_retries=max_retries
-    )
-    
-    rss_parser = RSSParser(
-        timeout=parser_timeout,
-        max_retries=max_retries
-    )
-    
-    media_extractor = MediaExtractor(
-        timeout=15.0,
-        max_retries=max_retries
-    )
-    
-    duplicate_detector = DuplicateDetector(
-        timeout=5.0,
-        max_retries=max_retries
-    )
-    
-    rss_storage = RSSStorage(
-        timeout=30.0,
-        max_retries=max_retries
-    )
+    rss_fetcher = RSSFetcher()
+    rss_parser = RSSParser()
+    media_extractor = MediaExtractor()
+    duplicate_detector = DuplicateDetector()
+    rss_storage = RSSStorage()
     
     rss_manager = RSSManager(
         fetcher=rss_fetcher,
         parser=rss_parser,
         media_extractor=media_extractor,
         duplicate_detector=duplicate_detector,
-        storage=rss_storage,
-        max_concurrent_feeds=max_concurrent_feeds
+        storage=rss_storage
     )
     
-    # Create feed object
-    feed = {
-        'url': feed_url,
-        'user_id': user_id
-    }
+    feed = {'url': feed_url, 'user_id': user_id}
     
     try:
-        # Process the feed
         result = await rss_manager.process_feeds([feed])
-        
-        logger.info(f"Successfully processed feed: {feed_url}")
+        logger.info(f"Processed feed: {feed_url}")
         return result
     finally:
         await api_client.close()
@@ -226,3 +140,4 @@ async def process_single_feed(feed_url: str, user_id: Optional[str] = None) -> d
 
 if __name__ == "__main__":
     asyncio.run(main())
+

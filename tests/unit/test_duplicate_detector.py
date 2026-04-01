@@ -18,12 +18,13 @@ class TestDuplicateDetector:
     def sample_item(self):
         """Create sample RSS item for testing."""
         return RSSItem(
-            title="Test Article",
-            link="https://example.com/article",
-            description="Test description",
-            pub_date="2023-01-01T00:00:00Z",
+            news_id="test-news-id",
+            original_title="Test Article",
+            original_content="Test content",
+            original_language="en",
             rss_feed_id=1,
-            content="Test content",
+            source_url="https://example.com/article",
+            pub_date=datetime.fromisoformat("2023-01-01T00:00:00Z").replace(tzinfo=timezone.utc),
             guid="test-guid-123"
         )
 
@@ -270,12 +271,13 @@ class TestDuplicateDetector:
     async def test_is_duplicate_with_special_characters(self, duplicate_detector):
         """Test duplicate detection with special characters."""
         item_with_special_chars = RSSItem(
-            title="Test Article with ñáéíóú and 🚀",
-            link="https://example.com/article-special",
-            description="Test description",
-            pub_date="2023-01-01T00:00:00Z",
+            news_id="special-news-id",
+            original_title="Test Article with ñáéíóú and 🚀",
+            original_content="Test content",
+            original_language="en",
             rss_feed_id=1,
-            content="Test content",
+            source_url="https://example.com/article-special",
+            pub_date=datetime.fromisoformat("2023-01-01T00:00:00Z").replace(tzinfo=timezone.utc),
             guid="test-guid-special"
         )
         
@@ -292,12 +294,13 @@ class TestDuplicateDetector:
         """Test duplicate detection with very long title."""
         long_title = "A" * 1000
         item_with_long_title = RSSItem(
-            title=long_title,
-            link="https://example.com/article-long",
-            description="Test description",
-            pub_date="2023-01-01T00:00:00Z",
+            news_id="long-news-id",
+            original_title=long_title,
+            original_content="Test content",
+            original_language="en",
             rss_feed_id=1,
-            content="Test content",
+            source_url="https://example.com/article-long",
+            pub_date=datetime.fromisoformat("2023-01-01T00:00:00Z").replace(tzinfo=timezone.utc),
             guid="test-guid-long"
         )
         
@@ -337,9 +340,9 @@ class TestDuplicateDetector:
     async def test_is_duplicate_mixed_detection_methods(self, duplicate_detector):
         """Test duplicate detection with different detection methods."""
         items = [
-            RSSItem(title="Item 1", link="https://example.com/item1", guid="guid1", rss_feed_id=1),
-            RSSItem(title="Item 2", link="https://example.com/item2", guid=None, rss_feed_id=1),
-            RSSItem(title="Item 3", link=None, guid=None, rss_feed_id=1)
+            RSSItem(news_id="item1", original_title="Item 1", original_content="content1", original_language="en", rss_feed_id=1, source_url="https://example.com/item1", guid="guid1"),
+            RSSItem(news_id="item2", original_title="Item 2", original_content="content2", original_language="en", rss_feed_id=1, source_url="https://example.com/item2", guid=None),
+            RSSItem(news_id="item3", original_title="Item 3", original_content="content3", original_language="en", rss_feed_id=1, source_url=None, guid=None)
         ]
         
         with patch.object(duplicate_detector, '_check_guid_duplicate') as mock_check_guid, \

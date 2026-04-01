@@ -219,7 +219,10 @@ class RSSParser:
         # Extract thumbnail
         if hasattr(entry, 'media_thumbnail') and entry.media_thumbnail:
             if isinstance(entry.media_thumbnail, list) and entry.media_thumbnail:
-                media["thumbnail"] = self._sanitize_text(entry.media_thumbnail[0].get('url', ''))
+                # Safely extract URL from first thumbnail
+                first_thumb = entry.media_thumbnail[0]
+                if first_thumb and isinstance(first_thumb, dict):
+                    media["thumbnail"] = self._sanitize_text(first_thumb.get('url', ''))
             elif isinstance(entry.media_thumbnail, dict):
                 media["thumbnail"] = self._sanitize_text(entry.media_thumbnail.get('url', ''))
         

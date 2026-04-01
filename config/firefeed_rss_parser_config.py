@@ -60,11 +60,25 @@ class RSSParserConfig:
     def media_timeout(self) -> float:
         """Get media timeout."""
         return 15.0
-    
+
     @property
     def duplicate_check_timeout(self) -> float:
         """Get duplicate check timeout."""
         return 5.0
+
+    @property
+    def redis_url(self) -> str:
+        """Get Redis connection URL."""
+        redis_host = os.getenv("REDIS_HOST", "localhost")
+        redis_port = os.getenv("REDIS_PORT", "6379")
+        redis_password = os.getenv("REDIS_PASSWORD", "")
+        redis_db = os.getenv("REDIS_DB", "0")
+        
+        url = f"redis://{redis_host}:{redis_port}/{redis_db}"
+        if redis_password:
+            url = f"redis://:{redis_password}@{redis_host}:{redis_port}/{redis_db}"
+        
+        return url
     
     @property
     def images_root_dir(self) -> str:

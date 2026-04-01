@@ -160,8 +160,8 @@ def validate_item_data(item_data: dict) -> list:
         errors.append("Item data must be a dictionary")
         return errors
     
-    # Required fields for items
-    required_fields = ['title', 'link']
+    # Required fields for items  
+    required_fields = ['title']
     
     for field in required_fields:
         if field not in item_data:
