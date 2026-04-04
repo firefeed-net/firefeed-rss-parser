@@ -107,6 +107,11 @@ async def process_single_feed(feed_url: str, user_id: Optional[str] = None) -> d
     logger = logging.getLogger(__name__)
     
     api_base_url = os.getenv("FIREFEED_API_BASE_URL", "http://localhost:8001")
+    api_token = os.getenv("SERVICE_API_TOKEN", "")
+    
+    if not api_token:
+        logger.error("SERVICE_API_TOKEN missing - cannot connect to API")
+        raise ValueError("SERVICE_API_TOKEN required")
     
     api_client = APIClient(
         base_url=api_base_url,
