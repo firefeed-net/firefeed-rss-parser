@@ -11,24 +11,26 @@ log() {
 # Function to check if required environment variables are set
 check_env_vars() {
     local missing_vars=()
-    
+
     if [ -z "$FIREFEED_API_BASE_URL" ]; then
         missing_vars+=("FIREFEED_API_BASE_URL")
     fi
-    
+
     if [ -z "$FIREFEED_API_TOKEN" ]; then
         missing_vars+=("FIREFEED_API_TOKEN")
     fi
-    
+
     if [ -z "$FIREFEED_SERVICE_ID" ]; then
         missing_vars+=("FIREFEED_SERVICE_ID")
     fi
-    
+
     if [ ${#missing_vars[@]} -ne 0 ]; then
         log "ERROR: Missing required environment variables: ${missing_vars[*]}"
         log "Please set all required environment variables before starting the container."
         exit 1
     fi
+
+    log "All required environment variables are set"
 }
 
 # Function to wait for dependencies

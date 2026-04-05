@@ -14,6 +14,7 @@ from services.media_extractor import MediaExtractor
 from services.duplicate_detector import DuplicateDetector
 from services.rss_storage import RSSStorage
 from firefeed_core.api_client.client import APIClient
+from health_check import start_health_server
 
 
 async def get_feeds_to_process(api_client: APIClient) -> list:
@@ -28,16 +29,17 @@ async def main():
     # Setup logging
     setup_logging()
     logger = logging.getLogger(__name__)
-    
+
     logger.info("Starting FireFeed RSS Parser service...")
-    
+
     # Load configuration values directly from canonical .env vars
     api_base_url = os.getenv("FIREFEED_API_BASE_URL", "http://localhost:8001")
     max_concurrent_feeds = int(os.getenv("MAX_CONCURRENT_FEEDS", "10"))
     fetch_timeout = float(os.getenv("FETCH_TIMEOUT", "15.0"))
     parser_timeout = float(os.getenv("PARSER_TIMEOUT", "10.0"))
     max_retries = int(os.getenv("MAX_RETRIES", "3"))
-    
+    health_port = int(os.getenv("HEALTH_CHECK_PORT", "8081"))
+
     # Initialize API client once and reuse it
     api_token = os.getenv("SERVICE_API_TOKEN", "")
     if not api_token:
@@ -51,14 +53,14 @@ async def main():
         timeout=fetch_timeout,
         max_retries=max_retries
     )
-    
+
     # Initialize services
     rss_fetcher = RSSFetcher(timeout=fetch_timeout, max_retries=max_retries)
     rss_parser = RSSParser(timeout=parser_timeout, max_retries=max_retries)
     media_extractor = MediaExtractor(timeout=15.0, max_retries=max_retries)
     duplicate_detector = DuplicateDetector()
     rss_storage = RSSStorage(timeout=30.0, max_retries=max_retries)
-    
+
     rss_manager = RSSManager(
         fetcher=rss_fetcher,
         parser=rss_parser,
@@ -67,30 +69,33 @@ async def main():
         storage=rss_storage,
         max_concurrent_feeds=max_concurrent_feeds
     )
-    
+
     restart_delay = float(os.getenv("RETRY_DELAY", "60.0"))
     loop_interval = float(os.getenv("FETCH_INTERVAL", "600"))
     if loop_interval < 60:
         loop_interval = 60
     logger.info(f"Configuration: loop_interval={loop_interval}s")
-    
+
+    # Start health check server in the background
+    health_runner = await start_health_server(port=health_port)
+
     try:
         while True:
             try:
                 logger.info("RSS cycle started")
-                
+
                 feeds = await get_feeds_to_process(api_client)
                 if not feeds:
                     logger.info("No feeds available, skipping cycle")
                     await asyncio.sleep(loop_interval)
                     continue
-                
+
                 logger.info(f"Processing {len(feeds)} feeds")
                 await rss_manager.process_feeds(feeds)
-                
+
                 logger.info("RSS cycle completed")
                 await asyncio.sleep(loop_interval)
-                
+
             except asyncio.CancelledError:
                 logger.info("Service cancelled gracefully")
                 raise
@@ -99,6 +104,7 @@ async def main():
                 await asyncio.sleep(restart_delay)
     finally:
         await api_client.close()
+        await health_runner.cleanup()
 
 
 async def process_single_feed(feed_url: str, user_id: Optional[str] = None) -> dict:
