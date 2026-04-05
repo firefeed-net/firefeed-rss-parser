@@ -65,7 +65,8 @@ class RSSManager:
                     try:
                         is_duplicate = await self.duplicate_detector.is_duplicate(rss_item)
                     except Exception as dup_exc:
-                        logger.warning(f"Duplicate check failed, assuming unique: {dup_exc} | item={rss_item.get('original_title', 'unknown')[:50]}")
+                        safe_title = rss_item.get('original_title', 'unknown')[:50] if rss_item and isinstance(rss_item, dict) else 'unknown'
+                        logger.warning(f"Duplicate check failed, assuming unique: {dup_exc} | item={safe_title}")
                         is_duplicate = False
                     
                     if is_duplicate:

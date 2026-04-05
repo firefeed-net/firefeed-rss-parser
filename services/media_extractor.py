@@ -28,34 +28,33 @@ class MediaExtractor:
         """
         self.timeout = timeout or 15.0
     
-    @retry_on_network_error(max_retries=2, base_delay=0.5)
     async def extract_media(self, url: str, rss_item_id: str, config=None) -> Optional[Dict[str, Any]]:
         """
         Extract and save media content from URL.
-        
+
         Args:
             url: URL to extract media from
             rss_item_id: ID for saving file name
             config: Config object
-            
+
         Returns:
             Media information with local_path or None
         """
         if not validate_url(url) or not rss_item_id:
             logger.warning(f"Invalid URL or no rss_item_id for media extraction: {url}")
             return None
-        
+
         config = config or get_config()
-        
+
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(url)
                 response.raise_for_status()
-                
+
                 media_info = await self._parse_html_for_media(response.text, url)
                 if not media_info:
                     return None
-                
+
                 # If image, download and save
                 if media_info.get('type') == 'image':
                     img_url = media_info['url']
@@ -65,23 +64,24 @@ class MediaExtractor:
                         logger.info(f"Image saved at local_path: {local_path}")
                     else:
                         logger.warning(f"Failed to save image from {img_url}")
-                
+
                 return media_info
-                
-        except httpx.TimeoutException as e:
-            logger.error(f"Media extraction timeout for {url}: {e}")
-            raise ServiceUnavailableException(f"Timeout extracting media from {url}", url, e)
+
         except httpx.HTTPStatusError as e:
+            # Handle HTTP errors immediately without retry (client errors are not retryable)
             status_code = e.response.status_code
             if 400 <= status_code < 500:
                 logger.warning(f"Client error {status_code} for {url} (e.g. paywall), skipping media")
                 return None
             else:
                 logger.error(f"Server error {status_code} for {url}: {e}")
-                raise ServiceUnavailableException(f"HTTP error extracting media from {url}", url, e)
+                return None
+        except httpx.TimeoutException as e:
+            logger.error(f"Media extraction timeout for {url}: {e}")
+            return None
         except Exception as e:
             logger.error(f"Error extracting media from {url}: {e}")
-            raise ServiceUnavailableException(f"Failed to extract media from {url}", url, e)
+            return None
     
     @retry_on_parsing_error(max_retries=2, base_delay=0.3)
     async def _parse_html_for_media(self, html_content: str, base_url: str) -> Optional[Dict[str, Any]]:

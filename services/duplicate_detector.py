@@ -60,7 +60,8 @@ class DuplicateDetector:
                     "size": 1
                 }
                 params["source_url"] = item_data.get('source_url')
-                params["title"] = item_data.get('original_title')[:100]  # Truncate for query
+                original_title = item_data.get('original_title') or ''
+                params["title"] = original_title[:100]  # Truncate for query
                 
                 @retry_on_rate_limit(max_retries=5, base_delay=2.0)
                 async def check_composite():

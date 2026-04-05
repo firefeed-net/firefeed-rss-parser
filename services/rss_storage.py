@@ -21,6 +21,16 @@ class RSSStorage:
             timeout=timeout or 30,
             max_retries=max_retries or 3
         )
+        # Separate client for non-critical updates (bypasses circuit breaker)
+        self._update_client = APIClient(
+            base_url=os.getenv("FIREFEED_API_BASE_URL", "http://localhost:8001"),
+            token=os.getenv("SERVICE_API_TOKEN", ""),
+            service_id="rss-parser-updates",
+            timeout=10,
+            max_retries=1,
+            circuit_breaker_failure_threshold=100,  # Effectively disabled
+            circuit_breaker_timeout=5
+        )
 
     @retry_on_network_error(max_retries=5, base_delay=2.0)
     async def save_rss_item(self, item_data):
@@ -47,10 +57,10 @@ class RSSStorage:
 
     @retry_on_network_error(max_retries=2, base_delay=0.5)
     async def update_rss_item(self, item_id, item_data):
-        "Update RSS item dict."
+        "Update RSS item dict (non-critical operation - won't affect main circuit breaker)."
         try:
             self._validate_item_data(item_data)
-            result = await self.api_client.put(f"/api/v1/internal/rss/items/{item_id}", json_data=item_data)
+            result = await self._update_client.put(f"/api/v1/internal/rss/items/{item_id}", json_data=item_data)
             if result is None:
                 logger.warning(f"update_rss_item {item_id} API returned None")
                 return False
@@ -75,6 +85,8 @@ class RSSStorage:
         "Cleanup resources."
         if hasattr(self.api_client, 'close'):
             await self.api_client.close()
+        if hasattr(self._update_client, 'close'):
+            await self._update_client.close()
 
     async def get_rss_items_list(self, page=1, size=10, **filters):
         params = {"page": page, "size": size, **filters}
