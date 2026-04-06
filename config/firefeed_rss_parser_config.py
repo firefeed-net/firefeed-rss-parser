@@ -19,7 +19,7 @@ class RSSParserConfig:
     @property
     def api_key(self) -> Optional[str]:
         """Get FireFeed API key."""
-        return os.getenv("RSS_PARSER_TOKEN")
+        return os.getenv("FIREFEED_API_SERVICE_TOKEN")
     
     @property
     def timeout(self) -> float:
@@ -96,6 +96,11 @@ class RSSParserConfig:
     def log_level(self) -> str:
         """Get log level."""
         return os.getenv("LOG_LEVEL", "INFO")
+
+    @property
+    def duplicate_detection_enabled(self) -> bool:
+        """Check if duplicate detection is enabled."""
+        return os.getenv("DUPLICATE_DETECTION_ENABLED", "true").lower() in ("true", "1", "yes")
 
 
 # Global configuration instance

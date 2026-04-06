@@ -16,7 +16,7 @@ class RSSStorage:
         import os
         self.api_client = api_client or APIClient(
             base_url=os.getenv("FIREFEED_API_BASE_URL", "http://localhost:8001"),
-            token=os.getenv("SERVICE_API_TOKEN", ""),
+            token=os.getenv("FIREFEED_API_SERVICE_TOKEN", ""),
             service_id="rss-parser-storage",
             timeout=timeout or 30,
             max_retries=max_retries or 3
@@ -24,7 +24,7 @@ class RSSStorage:
         # Separate client for non-critical updates (bypasses circuit breaker)
         self._update_client = APIClient(
             base_url=os.getenv("FIREFEED_API_BASE_URL", "http://localhost:8001"),
-            token=os.getenv("SERVICE_API_TOKEN", ""),
+            token=os.getenv("FIREFEED_API_SERVICE_TOKEN", ""),
             service_id="rss-parser-updates",
             timeout=10,
             max_retries=1,

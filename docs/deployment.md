@@ -53,7 +53,7 @@ Edit `.env` file with your configuration:
 ```bash
 # FireFeed API Configuration
 FIREFEED_API_BASE_URL=http://your-firefeed-api:8000
-FIREFEED_API_KEY=your-api-key-here
+FIREFEED_API_SERVICE_TOKEN=your-api-key-here
 
 # Service Configuration
 LOG_LEVEL=INFO
@@ -209,7 +209,7 @@ spec:
         env:
         - name: FIREFEED_API_BASE_URL
           value: "http://firefeed-api:8000"
-        - name: FIREFEED_API_KEY
+        - name: FIREFEED_API_SERVICE_TOKEN
           valueFrom:
             secretKeyRef:
               name: firefeed-secrets
@@ -317,7 +317,7 @@ spec:
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
 | `FIREFEED_API_BASE_URL` | FireFeed API base URL | `http://localhost:8000` | No |
-| `FIREFEED_API_KEY` | API authentication key | - | Yes |
+| `FIREFEED_API_SERVICE_TOKEN` | API authentication key | - | Yes |
 | `FIREFEED_TIMEOUT` | API request timeout (seconds) | `30` | No |
 | `FIREFEED_MAX_RETRIES` | Max API retry attempts | `3` | No |
 | `FIREFEED_RETRY_DELAY` | Retry delay (seconds) | `1.0` | No |
@@ -369,7 +369,7 @@ spec:
 ```bash
 # .env.development
 FIREFEED_API_BASE_URL=http://localhost:8000
-FIREFEED_API_KEY=dev-key-123
+FIREFEED_API_SERVICE_TOKEN=dev-key-123
 LOG_LEVEL=DEBUG
 MAX_CONCURRENT_FEEDS=5
 ENABLE_METRICS=true
@@ -380,7 +380,7 @@ ENABLE_METRICS=true
 ```bash
 # .env.production
 FIREFEED_API_BASE_URL=http://host.docker.internal:8001
-FIREFEED_API_KEY=prod-key-456
+FIREFEED_API_SERVICE_TOKEN=prod-key-456
 LOG_LEVEL=INFO
 MAX_CONCURRENT_FEEDS=20
 ENABLE_METRICS=true

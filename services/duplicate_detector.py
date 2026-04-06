@@ -18,7 +18,7 @@ class DuplicateDetector:
         import os
         self.api_client = api_client or APIClient(
             base_url=os.getenv("FIREFEED_API_BASE_URL", "http://localhost:8001"),
-            token=os.getenv("SERVICE_API_TOKEN", ""),
+            token=os.getenv("FIREFEED_API_SERVICE_TOKEN", ""),
             service_id="rss-parser-duplicate-detector",
             timeout=30,
             max_retries=3
@@ -28,6 +28,14 @@ class DuplicateDetector:
     
     async def is_duplicate(self, item_data: dict) -> bool:
         """Check if RSS item dict is duplicate."""
+        # Check if duplicate detection is enabled
+        from config.firefeed_rss_parser_config import get_config
+        config = get_config()
+        
+        if not config.duplicate_detection_enabled:
+            logger.debug("Duplicate detection is disabled, skipping check")
+            return False
+        
         if item_data is None:
             logger.warning("None item_data passed to is_duplicate")
             return False

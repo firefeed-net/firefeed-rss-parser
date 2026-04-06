@@ -16,8 +16,8 @@ check_env_vars() {
         missing_vars+=("FIREFEED_API_BASE_URL")
     fi
 
-    if [ -z "$FIREFEED_API_TOKEN" ]; then
-        missing_vars+=("FIREFEED_API_TOKEN")
+    if [ -z "$FIREFEED_API_SERVICE_TOKEN" ]; then
+        missing_vars+=("FIREFEED_API_SERVICE_TOKEN")
     fi
 
     if [ -z "$FIREFEED_SERVICE_ID" ]; then

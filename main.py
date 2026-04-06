@@ -41,10 +41,10 @@ async def main():
     health_port = int(os.getenv("HEALTH_CHECK_PORT", "8081"))
 
     # Initialize API client once and reuse it
-    api_token = os.getenv("SERVICE_API_TOKEN", "")
+    api_token = os.getenv("FIREFEED_API_SERVICE_TOKEN", "")
     if not api_token:
-        logger.error("SERVICE_API_TOKEN missing - cannot connect to API")
-        raise ValueError("SERVICE_API_TOKEN required")
+        logger.error("FIREFEED_API_SERVICE_TOKEN missing - cannot connect to API")
+        raise ValueError("FIREFEED_API_SERVICE_TOKEN required")
 
     api_client = APIClient(
         base_url=api_base_url,
@@ -113,11 +113,11 @@ async def process_single_feed(feed_url: str, user_id: Optional[str] = None) -> d
     logger = logging.getLogger(__name__)
     
     api_base_url = os.getenv("FIREFEED_API_BASE_URL", "http://localhost:8001")
-    api_token = os.getenv("SERVICE_API_TOKEN", "")
-    
+    api_token = os.getenv("FIREFEED_API_SERVICE_TOKEN", "")
+
     if not api_token:
-        logger.error("SERVICE_API_TOKEN missing - cannot connect to API")
-        raise ValueError("SERVICE_API_TOKEN required")
+        logger.error("FIREFEED_API_SERVICE_TOKEN missing - cannot connect to API")
+        raise ValueError("FIREFEED_API_SERVICE_TOKEN required")
     
     api_client = APIClient(
         base_url=api_base_url,

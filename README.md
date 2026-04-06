@@ -78,7 +78,7 @@ Create a `.env` file based on `.env.example`:
 ```bash
 # FireFeed API Configuration
 FIREFEED_API_BASE_URL=http://host.docker.internal:8001
-FIREFEED_API_KEY=your-api-key-here
+FIREFEED_API_SERVICE_TOKEN=your-api-key-here
 FIREFEED_TIMEOUT=30
 
 # Service Configuration
@@ -163,7 +163,7 @@ is_duplicate = await detector.is_duplicate(rss_item)
 ```bash
 # API Configuration
 FIREFEED_API_BASE_URL=http://host.docker.internal:8001
-FIREFEED_API_KEY=your-api-key
+FIREFEED_API_SERVICE_TOKEN=your-api-key
 FIREFEED_TIMEOUT=30
 
 # Service Configuration
@@ -194,7 +194,7 @@ services:
     build: .
     environment:
       - FIREFEED_API_BASE_URL=http://host.docker.internal:8001
-      - FIREFEED_API_KEY=${FIREFEED_API_KEY}
+      - FIREFEED_API_SERVICE_TOKEN=${FIREFEED_API_SERVICE_TOKEN}
       - LOG_LEVEL=INFO
     ports:
       - "8080:8080"  # Metrics
@@ -285,7 +285,7 @@ docker run -d \
   -p 8080:8080 \
   -p 8081:8081 \
   -e FIREFEED_API_BASE_URL=http://host.docker.internal:8001 \
-  -e FIREFEED_API_KEY=your-key \
+  -e FIREFEED_API_SERVICE_TOKEN=your-key \
   firefeed/rss-parser:latest
 ```
 
@@ -316,7 +316,7 @@ spec:
         env:
         - name: FIREFEED_API_BASE_URL
           value: "http://firefeed-api:8000"
-        - name: FIREFEED_API_KEY
+        - name: FIREFEED_API_SERVICE_TOKEN
           valueFrom:
             secretKeyRef:
               name: firefeed-secrets
