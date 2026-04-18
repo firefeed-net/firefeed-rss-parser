@@ -1,6 +1,7 @@
 """Media extraction service for RSS items."""
 
 import httpx
+import aiohttp
 import logging
 from typing import Optional, Dict, Any
 from urllib.parse import urljoin, urlparse
@@ -27,6 +28,19 @@ class MediaExtractor:
             max_retries: Maximum number of retry attempts (for compatibility)
         """
         self.timeout = timeout or 15.0
+        self._aiohttp_session: Optional[aiohttp.ClientSession] = None
+    
+    async def _get_aiohttp_session(self) -> aiohttp.ClientSession:
+        """Get or create a shared aiohttp session for image downloads."""
+        if self._aiohttp_session is None or self._aiohttp_session.closed:
+            timeout = aiohttp.ClientTimeout(total=15)
+            self._aiohttp_session = aiohttp.ClientSession(timeout=timeout)
+        return self._aiohttp_session
+    
+    async def cleanup(self):
+        """Close shared aiohttp session."""
+        if self._aiohttp_session and not self._aiohttp_session.closed:
+            await self._aiohttp_session.close()
     
     async def extract_media(self, url: str, rss_item_id: str, config=None) -> Optional[Dict[str, Any]]:
         """
@@ -55,10 +69,11 @@ class MediaExtractor:
                 if not media_info:
                     return None
 
-                # If image, download and save
+                # If image, download and save using shared aiohttp session
                 if media_info.get('type') == 'image':
                     img_url = media_info['url']
-                    local_path = await ImageProcessor.process_image_from_url(img_url, rss_item_id)
+                    session = await self._get_aiohttp_session()
+                    local_path = await ImageProcessor.process_image_from_url(img_url, rss_item_id, session=session)
                     if local_path:
                         media_info['local_path'] = local_path
                         logger.info(f"Image saved at local_path: {local_path}")
@@ -240,23 +255,4 @@ class MediaExtractor:
         og_description = soup.find('meta', property='og:description')
         return og_description.get('content', '') if og_description else ''
     
-    def _is_valid_media_url(self, url: str) -> bool:
-        """Check if URL is a valid media URL."""
-        if not url:
-            return False
-        
-        # Check if URL is valid
-        if not validate_url(url):
-            return False
-        
-        # Check file extension
-        parsed_url = urlparse(url)
-        path = parsed_url.path.lower()
-        
-        image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
-        video_extensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi']
-        audio_extensions = ['.mp3', '.wav', '.ogg', '.m4a', '.flac']
-        
-        return (any(path.endswith(ext) for ext in image_extensions) or
-                any(path.endswith(ext) for ext in video_extensions) or
-                any(path.endswith(ext) for ext in audio_extensions))
+

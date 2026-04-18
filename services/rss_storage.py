@@ -15,28 +15,17 @@ class RSSStorage:
     def __init__(self, api_client=None, timeout=None, max_retries=None):
         import os
         self.api_client = api_client or APIClient(
-            base_url=os.getenv("FIREFEED_API_BASE_URL", "http://localhost:8001"),
+            base_url=os.getenv("API_BASE_URL", "http://localhost:8001"),
             token=os.getenv("FIREFEED_API_SERVICE_TOKEN", ""),
             service_id="rss-parser-storage",
             timeout=timeout or 30,
             max_retries=max_retries or 3
         )
-        # Separate client for non-critical updates (bypasses circuit breaker)
-        self._update_client = APIClient(
-            base_url=os.getenv("FIREFEED_API_BASE_URL", "http://localhost:8001"),
-            token=os.getenv("FIREFEED_API_SERVICE_TOKEN", ""),
-            service_id="rss-parser-updates",
-            timeout=10,
-            max_retries=1,
-            circuit_breaker_failure_threshold=100,  # Effectively disabled
-            circuit_breaker_timeout=5
-        )
+        # Use same client for updates; retry logic is handled by decorator
+        self._update_client = self.api_client
 
     @retry_on_network_error(max_retries=5, base_delay=2.0)
     async def save_rss_item(self, item_data):
-        """Save RSS item dict to API with rate limit handling."""
-
-
         """Save RSS item dict to API with rate limit handling."""
         try:
             self._validate_item_data(item_data)
@@ -57,10 +46,10 @@ class RSSStorage:
 
     @retry_on_network_error(max_retries=2, base_delay=0.5)
     async def update_rss_item(self, item_id, item_data):
-        "Update RSS item dict (non-critical operation - won't affect main circuit breaker)."
+        """Update RSS item dict (non-critical operation)."""
         try:
             self._validate_item_data(item_data)
-            result = await self._update_client.put(f"/api/v1/internal/rss/items/{item_id}", json_data=item_data)
+            result = await self.api_client.put(f"/api/v1/internal/rss/items/{item_id}", json_data=item_data)
             if result is None:
                 logger.warning(f"update_rss_item {item_id} API returned None")
                 return False

@@ -17,7 +17,7 @@ class DuplicateDetector:
     def __init__(self, api_client: Optional[APIClient] = None, redis_service: Optional[RedisService] = None):
         import os
         self.api_client = api_client or APIClient(
-            base_url=os.getenv("FIREFEED_API_BASE_URL", "http://localhost:8001"),
+            base_url=os.getenv("API_BASE_URL", "http://localhost:8001"),
             token=os.getenv("FIREFEED_API_SERVICE_TOKEN", ""),
             service_id="rss-parser-duplicate-detector",
             timeout=30,
@@ -27,7 +27,11 @@ class DuplicateDetector:
         self.semaphore = asyncio.Semaphore(2)  # Limit concurrent API calls to avoid rate limits
     
     async def is_duplicate(self, item_data: dict) -> bool:
-        """Check if RSS item dict is duplicate."""
+        """Check if RSS item dict is duplicate.
+        
+        Raises:
+            ValidationException: If item_data is invalid (None, non-dict, missing required fields)
+        """
         # Check if duplicate detection is enabled
         from config.firefeed_rss_parser_config import get_config
         config = get_config()
@@ -37,14 +41,17 @@ class DuplicateDetector:
             return False
         
         if item_data is None:
-            logger.warning("None item_data passed to is_duplicate")
-            return False
+            raise ValidationException("item_data cannot be None")
         if not isinstance(item_data, dict):
-            logger.warning("Non-dict item_data passed to is_duplicate")
-            return False
+            raise ValidationException(f"item_data must be dict, got {type(item_data)}")
         if not item_data.get('news_id') or not item_data.get('source_url'):
-            logger.warning(f"Missing essential fields for duplicate check: news_id={bool(item_data.get('news_id'))}, source_url={bool(item_data.get('source_url'))}")
-            return False
+            raise ValidationException(
+                "Missing essential fields for duplicate check",
+                details={
+                    "has_news_id": bool(item_data.get('news_id')),
+                    "has_source_url": bool(item_data.get('source_url'))
+                }
+            )
         news_id = item_data.get('news_id')
 
         cache_key = f"dup:{news_id}"

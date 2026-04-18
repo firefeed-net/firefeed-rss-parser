@@ -24,8 +24,9 @@ class RSSParser:
             timeout: Request timeout in seconds (for compatibility)
             max_retries: Maximum number of retry attempts (for compatibility)
         """
-        # Configure feedparser
-        feedparser.PREFERRED_XML_PARSERS = ['html5lib', 'lxml', 'xml']
+        # Configure feedparser - use only safe built-in XML parser to prevent XXE attacks
+        # html5lib and lxml can process external entities which is a security risk
+        feedparser.PREFERRED_XML_PARSERS = ['xml']
     
     @retry_on_parsing_error(max_retries=2, base_delay=0.5)
     async def parse_rss(self, rss_content: str) -> Optional[Dict[str, Any]]:
@@ -50,8 +51,9 @@ class RSSParser:
             )
         
         try:
-            # Parse feed
-            parsed = feedparser.parse(rss_content)
+            # Parse feed (run in executor to avoid blocking event loop)
+            import asyncio
+            parsed = await asyncio.to_thread(feedparser.parse, rss_content)
             
             # Check for parsing errors
             if parsed.bozo:
@@ -229,18 +231,27 @@ class RSSParser:
         return media if media else None
     
     def _sanitize_text(self, text: Any) -> str:
-        """Sanitize text content."""
+        """Sanitize text content by stripping HTML tags and normalizing whitespace."""
         if text is None:
             return ""
         
         if not isinstance(text, str):
             text = str(text)
         
-        # Remove HTML tags and extra whitespace
-        import re
-        text = re.sub(r'<[^>]+>', '', text)
-        text = re.sub(r'\s+', ' ', text)
-        return text.strip()
+        try:
+            # Use BeautifulSoup for safe HTML stripping (handles malformed HTML, entities)
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(text, 'html.parser')
+            # Get text and collapse whitespace
+            cleaned = ' '.join(soup.stripped_strings)
+            return cleaned
+        except Exception as e:
+            logger.debug(f"BeautifulSoup sanitization failed: {e}, falling back to regex")
+            # Fallback to regex-based stripping (less safe but better than nothing)
+            import re
+            text = re.sub(r'<[^>]+>', '', text)
+            text = re.sub(r'\s+', ' ', text)
+            return text.strip()
     
     def _parse_date(self, date_string: Any) -> Optional[datetime]:
         """Parse date string to datetime object."""

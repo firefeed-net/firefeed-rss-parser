@@ -103,9 +103,12 @@ class HealthChecker:
         if api_health["status"] != "healthy" or connectivity["status"] != "connected":
             overall_status = "degraded"
         
+        from datetime import datetime, timezone
+        timestamp = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+        
         return {
             "status": overall_status,
-            "timestamp": "2023-01-01T00:00:00Z",  # Will be set dynamically
+            "timestamp": timestamp,
             "services": {
                 "api": api_health,
                 "connectivity": connectivity

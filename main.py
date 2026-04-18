@@ -6,7 +6,7 @@ import os
 from typing import Optional
 import time
 
-from config import setup_logging
+from config.firefeed_rss_parser_config import get_config, setup_logging
 from services.rss_manager import RSSManager
 from services.rss_fetcher import RSSFetcher
 from services.rss_parser import RSSParser
@@ -32,12 +32,13 @@ async def main():
 
     logger.info("Starting FireFeed RSS Parser service...")
 
-    # Load configuration values directly from canonical .env vars
-    api_base_url = os.getenv("FIREFEED_API_BASE_URL", "http://localhost:8001")
-    max_concurrent_feeds = int(os.getenv("MAX_CONCURRENT_FEEDS", "10"))
-    fetch_timeout = float(os.getenv("FETCH_TIMEOUT", "15.0"))
-    parser_timeout = float(os.getenv("PARSER_TIMEOUT", "10.0"))
-    max_retries = int(os.getenv("MAX_RETRIES", "3"))
+    # Load configuration from central config
+    config = get_config()
+    api_base_url = config.base_url
+    max_concurrent_feeds = config.max_concurrent_feeds
+    fetch_timeout = config.fetch_timeout
+    parser_timeout = config.parser_timeout
+    max_retries = config.max_retries
     health_port = int(os.getenv("HEALTH_CHECK_PORT", "8081"))
 
     # Initialize API client once and reuse it
@@ -70,7 +71,7 @@ async def main():
         max_concurrent_feeds=max_concurrent_feeds
     )
 
-    restart_delay = float(os.getenv("RETRY_DELAY", "60.0"))
+    restart_delay = config.retry_delay
     loop_interval = float(os.getenv("FETCH_INTERVAL", "600"))
     if loop_interval < 60:
         loop_interval = 60
@@ -104,16 +105,18 @@ async def main():
                 await asyncio.sleep(restart_delay)
     finally:
         await api_client.close()
+        await rss_manager.cleanup()
         await health_runner.cleanup()
 
 
 async def process_single_feed(feed_url: str, user_id: Optional[str] = None) -> dict:
     """Process a single RSS feed."""
+    from config.firefeed_rss_parser_config import get_config
     setup_logging()
     logger = logging.getLogger(__name__)
-    
-    api_base_url = os.getenv("FIREFEED_API_BASE_URL", "http://localhost:8001")
-    api_token = os.getenv("FIREFEED_API_SERVICE_TOKEN", "")
+    config = get_config()
+    api_base_url = config.base_url
+    api_token = config.api_key
 
     if not api_token:
         logger.error("FIREFEED_API_SERVICE_TOKEN missing - cannot connect to API")
@@ -147,6 +150,7 @@ async def process_single_feed(feed_url: str, user_id: Optional[str] = None) -> d
         return result
     finally:
         await api_client.close()
+        await rss_manager.cleanup()
 
 
 if __name__ == "__main__":

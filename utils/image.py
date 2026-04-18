@@ -16,7 +16,7 @@ class ImageProcessor:
     """Class for processing and downloading images"""
 
     @staticmethod
-    async def download_and_save_image(url, rss_item_id, save_directory=None):
+    async def download_and_save_image(url, rss_item_id, save_directory=None, session=None):
         """
         Downloads the image and saves it locally with a filename based on rss_item_id.
         Saves to path: save_directory/YYYY/MM/DD/{rss_item_id}{ext}
@@ -24,6 +24,7 @@ class ImageProcessor:
         :param url: Image URL
         :param rss_item_id: Unique RSS item ID for DB
         :param save_directory: Directory for saving images
+        :param session: Optional aiohttp.ClientSession for connection reuse
         :return: Path to saved file or None
         """
         if not url or not rss_item_id:
@@ -31,7 +32,6 @@ class ImageProcessor:
             return None
 
         from pathlib import Path
-        # Get default save directory - persistent Docker volume
         if save_directory is None:
             save_directory = Path(os.getenv("IMAGES_ROOT_DIR", "/app/data/images"))
         else:
@@ -40,7 +40,6 @@ class ImageProcessor:
         save_directory.mkdir(parents=True, exist_ok=True)
 
         try:
-            # Use current time to form path
             created_at = datetime.now()
             date_path = created_at.strftime("%Y/%m/%d")
             full_save_directory = save_directory / date_path
@@ -56,9 +55,12 @@ class ImageProcessor:
                 "Connection": "keep-alive",
             }
 
-            # Use aiohttp for asynchronous downloading
             timeout = aiohttp.ClientTimeout(total=10)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
+            close_session = session is None
+            if close_session:
+                session = aiohttp.ClientSession(timeout=timeout)
+            
+            try:
                 async with session.get(url, headers=headers) as response:
                     response.raise_for_status()
 
@@ -66,17 +68,14 @@ class ImageProcessor:
                     content_lower = content_type.lower()
                     extension = ".jpg"
 
-                    # Get image file extensions from config
                     config_obj = get_config()
                     image_extensions = config_obj.image_file_extensions
 
-                    # Check content_type
                     for ext in image_extensions:
                         if ext[1:] in content_lower:
                             extension = ext
                             break
                     else:
-                        # Check URL
                         parsed_url = urlparse(url)
                         path = parsed_url.path
                         if path.lower().endswith(tuple(image_extensions)):
@@ -89,24 +88,22 @@ class ImageProcessor:
                     filename = f"{safe_rss_item_id}{extension}"
                     file_path = os.path.join(full_save_directory, filename)
 
-                    # Check if file already exists
                     if os.path.exists(file_path):
                         logger.info(f"[LOG] Image already exists on server: {file_path}")
-                        # Return relative path from save_directory
                         relative_path = os.path.relpath(file_path, save_directory)
                         return relative_path
 
-                    # Read content asynchronously
                     content = await response.read()
 
-                    # Save file asynchronously
                     async with aiofiles.open(file_path, "wb") as f:
                         await f.write(content)
 
                     logger.info(f"[LOG] Image successfully saved: {file_path}")
-                    # Return relative path from save_directory
                     relative_path = os.path.relpath(file_path, save_directory)
                     return relative_path
+            finally:
+                if close_session and session:
+                    await session.close()
 
         except OSError as e:
             logger.warning(
@@ -118,18 +115,19 @@ class ImageProcessor:
             return None
 
     @staticmethod
-    async def process_image_from_url(url, rss_item_id):
+    async def process_image_from_url(url, rss_item_id, session=None):
         """
         Process image from URL - download and save it locally.
 
         :param url: URL of the image
         :param rss_item_id: RSS item ID for filename generation
+        :param session: Optional aiohttp.ClientSession for connection reuse
         :return: local file path or None
         """
         if not url or not rss_item_id:
             return None
 
-        return await ImageProcessor.download_and_save_image(url, rss_item_id)
+        return await ImageProcessor.download_and_save_image(url, rss_item_id, session=session)
 
     @staticmethod
     async def extract_image_from_preview(url):

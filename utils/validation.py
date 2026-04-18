@@ -4,6 +4,7 @@ import re
 import logging
 from typing import Optional
 from urllib.parse import urlparse
+import ipaddress
 from firefeed_core.exceptions import ValidationException
 
 
@@ -12,13 +13,13 @@ logger = logging.getLogger(__name__)
 
 def validate_url(url: str) -> bool:
     """
-    Validate URL format.
+    Validate URL format and check for SSRF vulnerabilities.
     
     Args:
         url: URL string to validate
         
     Returns:
-        True if URL is valid, False otherwise
+        True if URL is valid and safe, False otherwise
     """
     if not url or not isinstance(url, str):
         return False
@@ -29,20 +30,39 @@ def validate_url(url: str) -> bool:
         if not all([result.scheme, result.netloc]):
             return False
         
-        # Check if scheme is HTTP or HTTPS
+        # Only allow HTTP/HTTPS - block file://, gopher://, etc.
         if result.scheme not in ['http', 'https']:
+            logger.warning(f"URL scheme not allowed: {result.scheme}")
             return False
         
         # Basic URL format validation
         url_pattern = re.compile(
-            r'^https?://'  # http:// or https://
-            r'(?:[-\w.]|(?:%[\da-fA-F]{2}))+'  # domain name
-            r'(?::\d+)?'  # optional port
-            r'(?:[/?:].*)?$',  # path, query, fragment
+            r'^https?://'
+            r'(?:[-\w.]|(?:%[\da-fA-F]{2}))+'
+            r'(?::\d+)?'
+            r'(?:[/?:].*)?$',
             re.IGNORECASE
         )
+        if not url_pattern.match(url):
+            return False
         
-        return bool(url_pattern.match(url))
+        # SSRF protection: Check for private/reserved IP addresses
+        hostname = result.netloc.split(':')[0]  # Remove port
+        try:
+            ip = ipaddress.ip_address(hostname)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                logger.warning(f"SSRF protection: blocked access to private/reserved IP: {hostname}")
+                return False
+        except ValueError:
+            # Not an IP address, could be a domain name - allow
+            pass
+        
+        # Block localhost and common internal hostnames
+        if hostname.lower() in ('localhost', '127.0.0.1', '0.0.0.0', '::1'):
+            logger.warning(f"SSRF protection: blocked access to localhost: {hostname}")
+            return False
+        
+        return True
         
     except Exception as e:
         logger.error(f"Error validating URL '{url}': {e}")

@@ -1,6 +1,7 @@
 import os
 import logging
 from typing import Optional, Union
+import re
 import redis.asyncio as aioredis
 from contextlib import asynccontextmanager
 
@@ -13,7 +14,7 @@ class RedisService:
     """Async Redis service for duplicate caching."""
     
     def __init__(self, redis_url: Optional[str] = None):
-        self.redis_url = redis_url or get_config().redis_url
+        self.redis_url = redis_url
         self.pool: Optional[aioredis.Redis] = None
     
     async def __aenter__(self):
@@ -23,17 +24,41 @@ class RedisService:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.cleanup()
     
+    def _sanitize_url_for_log(self, url: str) -> str:
+        """Mask password in URL for safe logging."""
+        if '@' in url:
+            return re.sub(r'(:[^@]+)@', ':***@', url)
+        return url
+    
     async def start(self):
         """Start Redis pool."""
         try:
-            self.pool = await aioredis.from_url(
-                self.redis_url,
-                minsize=1,
-                maxsize=5,
-                encoding="utf-8",
-                decode_responses=True
-            )
-            logger.info(f"Redis pool started: {self.redis_url}")
+            if self.redis_url:
+                # Legacy: use provided URL (may contain password)
+                connection_url = self.redis_url
+                self.pool = await aioredis.from_url(
+                    connection_url,
+                    minsize=1,
+                    maxsize=5,
+                    encoding="utf-8",
+                    decode_responses=True
+                )
+                safe_url = self._sanitize_url_for_log(connection_url)
+                logger.info(f"Redis pool started (URL): {safe_url}")
+            else:
+                # Use config with separate parameters (password not in URL)
+                config = get_config()
+                pool = aioredis.ConnectionPool(
+                    host=config.redis_host,
+                    port=config.redis_port,
+                    password=config.redis_password,
+                    db=config.redis_db,
+                    max_connections=5,
+                    encoding='utf-8',
+                    decode_responses=True
+                )
+                self.pool = aioredis.Redis(connection_pool=pool)
+                logger.info(f"Redis pool started: {config.redis_host}:{config.redis_port}")
         except Exception as e:
             logger.error(f"Failed to start Redis pool: {e}")
             raise
@@ -76,7 +101,8 @@ class RedisService:
         if self.pool:
             try:
                 await self.pool.close()
-                await self.pool.wait_closed()
+                if hasattr(self.pool, 'wait_closed'):
+                    await self.pool.wait_closed()
                 logger.info("Redis pool closed")
             except Exception as e:
                 logger.error(f"Redis cleanup failed: {e}")
@@ -89,4 +115,3 @@ async def get_redis_service(redis_url: Optional[str] = None) -> RedisService:
     service = RedisService(redis_url)
     await service.start()
     return service
-

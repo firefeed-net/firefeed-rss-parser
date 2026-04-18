@@ -370,7 +370,7 @@ class TestConfigLoader:
     def test_load_from_env_with_values(self):
         """Test loading config from environment variables."""
         env_vars = {
-            "FIREFEED_API_BASE_URL": "http://custom-api:9000",
+            "API_BASE_URL": "http://custom-api:9000",
             "FIREFEED_API_TOKEN": "custom-token",
             "FIREFEED_SERVICE_ID": "custom-service",
             "RSS_PARSER_MAX_CONCURRENT_FEEDS": "20",
@@ -487,7 +487,7 @@ class TestConfigLoader:
     def test_load_priority(self):
         """Test config loading priority (file over environment)."""
         # Set environment variable
-        os.environ["FIREFEED_API_BASE_URL"] = "http://env-api:8000"
+        os.environ["API_BASE_URL"] = "http://env-api:8000"
         
         try:
             # Create config file with different value
@@ -515,8 +515,8 @@ class TestConfigLoader:
                 if "CONFIG_PATH" in os.environ:
                     del os.environ["CONFIG_PATH"]
         finally:
-            if "FIREFEED_API_BASE_URL" in os.environ:
-                del os.environ["FIREFEED_API_BASE_URL"]
+            if "API_BASE_URL" in os.environ:
+                del os.environ["API_BASE_URL"]
 
 
 class TestConfigIntegration:

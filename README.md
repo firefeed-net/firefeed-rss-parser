@@ -77,7 +77,7 @@ Create a `.env` file based on `.env.example`:
 
 ```bash
 # FireFeed API Configuration
-FIREFEED_API_BASE_URL=http://host.docker.internal:8001
+API_BASE_URL=http://host.docker.internal:8001
 FIREFEED_API_SERVICE_TOKEN=your-api-key-here
 FIREFEED_TIMEOUT=30
 
@@ -162,7 +162,7 @@ is_duplicate = await detector.is_duplicate(rss_item)
 
 ```bash
 # API Configuration
-FIREFEED_API_BASE_URL=http://host.docker.internal:8001
+API_BASE_URL=http://host.docker.internal:8001
 FIREFEED_API_SERVICE_TOKEN=your-api-key
 FIREFEED_TIMEOUT=30
 
@@ -193,7 +193,7 @@ services:
   rss-parser:
     build: .
     environment:
-      - FIREFEED_API_BASE_URL=http://host.docker.internal:8001
+      - API_BASE_URL=http://host.docker.internal:8001
       - FIREFEED_API_SERVICE_TOKEN=${FIREFEED_API_SERVICE_TOKEN}
       - LOG_LEVEL=INFO
     ports:
@@ -284,7 +284,7 @@ docker run -d \
   --name rss-parser \
   -p 8080:8080 \
   -p 8081:8081 \
-  -e FIREFEED_API_BASE_URL=http://host.docker.internal:8001 \
+  -e API_BASE_URL=http://host.docker.internal:8001 \
   -e FIREFEED_API_SERVICE_TOKEN=your-key \
   firefeed/rss-parser:latest
 ```
@@ -314,7 +314,7 @@ spec:
         - containerPort: 8080  # metrics
         - containerPort: 8081  # health
         env:
-        - name: FIREFEED_API_BASE_URL
+        - name: API_BASE_URL
           value: "http://firefeed-api:8000"
         - name: FIREFEED_API_SERVICE_TOKEN
           valueFrom:

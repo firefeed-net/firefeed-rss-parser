@@ -178,7 +178,7 @@ class RSSFetcher:
             last_modified: Last-Modified header from previous request
             
         Returns:
-            Dictionary with content and headers
+            Dictionary with content and headers (etag, last_modified)
         """
         headers = {}
         
@@ -187,12 +187,34 @@ class RSSFetcher:
         if last_modified:
             headers['If-Modified-Since'] = last_modified
         
-        content = await self.fetch_rss(url, headers=headers)
-        
-        # In a real implementation, we would extract ETag and Last-Modified
-        # from the response headers. For now, we return the content.
-        return {
-            "content": content,
-            "etag": None,
-            "last_modified": None
-        }
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(url, headers=headers)
+                if response.status_code == 304:
+                    # Not Modified - return empty content with cached headers
+                    return {
+                        "content": "",
+                        "etag": response.headers.get('ETag'),
+                        "last_modified": response.headers.get('Last-Modified'),
+                        "status_code": 304
+                    }
+                response.raise_for_status()
+                content = response.text
+                return {
+                    "content": content,
+                    "etag": response.headers.get('ETag'),
+                    "last_modified": response.headers.get('Last-Modified'),
+                    "status_code": response.status_code
+                }
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 304:
+                return {
+                    "content": "",
+                    "etag": e.response.headers.get('ETag'),
+                    "last_modified": e.response.headers.get('Last-Modified'),
+                    "status_code": 304
+                }
+            raise
+        except Exception as e:
+            logger.error(f"Error in fetch_with_etag for {url}: {e}")
+            raise

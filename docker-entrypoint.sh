@@ -12,16 +12,12 @@ log() {
 check_env_vars() {
     local missing_vars=()
 
-    if [ -z "$FIREFEED_API_BASE_URL" ]; then
-        missing_vars+=("FIREFEED_API_BASE_URL")
+    if [ -z "$API_BASE_URL" ]; then
+        missing_vars+=("API_BASE_URL")
     fi
 
     if [ -z "$FIREFEED_API_SERVICE_TOKEN" ]; then
         missing_vars+=("FIREFEED_API_SERVICE_TOKEN")
-    fi
-
-    if [ -z "$FIREFEED_SERVICE_ID" ]; then
-        missing_vars+=("FIREFEED_SERVICE_ID")
     fi
 
     if [ ${#missing_vars[@]} -ne 0 ]; then
@@ -41,7 +37,7 @@ wait_for_dependencies() {
     log "Waiting for FireFeed API to be ready..."
     
     while [ $attempt -le $max_attempts ]; do
-        if curl -f -s "$FIREFEED_API_BASE_URL/health" > /dev/null 2>&1; then
+        if curl -f -s "$API_BASE_URL/health" > /dev/null 2>&1; then
             log "FireFeed API is ready"
             return 0
         fi
@@ -59,8 +55,9 @@ wait_for_dependencies() {
 health_check() {
     log "Performing health check..."
     
-    # Check if the service is responding
-    if curl -f -s "http://localhost:8001/health" > /dev/null 2>&1; then
+    # Use API_BASE_URL to determine health check endpoint
+    local health_url="${API_BASE_URL}/health"
+    if curl -f -s "$health_url" > /dev/null 2>&1; then
         log "Health check passed"
         return 0
     else
@@ -89,8 +86,8 @@ validate_config() {
     fi
     
     # Validate API URL format
-    if [[ ! "$FIREFEED_API_BASE_URL" =~ ^https?:// ]]; then
-        log "ERROR: Invalid FIREFEED_API_BASE_URL format"
+    if [[ ! "$API_BASE_URL" =~ ^https?:// ]]; then
+        log "ERROR: Invalid API_BASE_URL format"
         exit 1
     fi
     

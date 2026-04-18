@@ -33,6 +33,10 @@ class TranslationService:
         """
         Translate text to target language.
         
+        NOTE: This is a stub implementation. To enable real translation,
+        configure a translation provider (e.g., Google Translate, DeepL)
+        via environment variables or inject a custom API client.
+        
         Args:
             text: Text to translate
             target_language: Target language code
@@ -48,9 +52,11 @@ class TranslationService:
             logger.warning(f"Unsupported target language: {target_language}")
             return None
         
-        # In a real implementation, this would call a translation API
-        # For now, return the original text
-        logger.info(f"Translation would be performed for text to {target_language}")
+        # Stub: log warning and return original text
+        logger.warning(
+            "TranslationService is a stub - returning original text. "
+            "Implement real translation by providing a translation API client."
+        )
         return text
     
     @retry_on_network_error(max_retries=2, base_delay=0.5)

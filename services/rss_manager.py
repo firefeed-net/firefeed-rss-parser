@@ -1,5 +1,6 @@
 """RSS manager for FireFeed RSS Parser."""
 
+import asyncio
 import logging
 from typing import Optional, Dict, Any
 from models import RSSFeed
@@ -33,6 +34,8 @@ class RSSManager:
         self.storage = storage or RSSStorage()
         self.media_extractor = media_extractor or MediaExtractor()
         self.duplicate_detector = duplicate_detector or DuplicateDetector()
+        self.max_concurrent_feeds = max_concurrent_feeds or 10
+        self._semaphore = asyncio.Semaphore(self.max_concurrent_feeds)
     
     async def process_feed(self, feed: RSSFeed) -> bool:
         try:
@@ -132,22 +135,36 @@ class RSSManager:
         
         import hashlib
         from datetime import datetime, timezone
+        from dateutil import parser as date_parser
         
         logger.debug(f"_create_rss_item: processing item_data type={type(item_data)}, keys={list(item_data.keys()) if isinstance(item_data, dict) else 'N/A'}")
-        pub_date = item_data.get('pub_date')
-        if isinstance(pub_date, str):
-            pub_date = datetime.fromisoformat(pub_date.replace('Z', '+00:00'))
-        elif not hasattr(pub_date, 'tzinfo') and pub_date is not None:
-            pub_date = datetime.now(timezone.utc)
-        elif pub_date is None:
+        
+        # Parse pub_date using dateutil for robust handling of various formats
+        pub_date_raw = item_data.get('pub_date')
+        if isinstance(pub_date_raw, str) and pub_date_raw.strip():
+            try:
+                pub_date = date_parser.parse(pub_date_raw, fuzzy=True)
+            except Exception:
+                pub_date = datetime.now(timezone.utc)
+        elif hasattr(pub_date_raw, 'tzinfo'):
+            pub_date = pub_date_raw
+        else:
             pub_date = datetime.now(timezone.utc)
         
         if not item_data.get('link', '').strip():
             logger.debug(f"Skipping item without link: {item_data.get('title', 'unknown')[:50]}")
             return None
         
+        # Generate stable news_id using SHA-256 for better uniqueness
         guid = item_data.get('guid') or item_data.get('link', '')
-        news_id = hashlib.md5(guid.encode()).hexdigest() if guid else hashlib.md5(str(datetime.now()).encode()).hexdigest()
+        if guid:
+            # Use SHA-256 instead of MD5 for better collision resistance
+            news_id = hashlib.sha256(guid.encode()).hexdigest()
+        else:
+            # Fallback: combine timestamp with random element to avoid collisions
+            import random
+            fallback_str = f"{datetime.now(timezone.utc).isoformat()}-{random.randint(0, 1000000)}"
+            news_id = hashlib.sha256(fallback_str.encode()).hexdigest()
         
         title = item_data.get('title', '')
         content = item_data.get('content') or item_data.get('description', '') or item_data.get('summary', '') or title
@@ -165,21 +182,36 @@ class RSSManager:
 
     
     async def process_feeds(self, feeds: list) -> dict:
+        """Process multiple feeds concurrently with limited concurrency."""
         results = {'total_feeds': len(feeds), 'processed': 0, 'failed': 0, 'items': 0, 'errors': []}
-        for feed_data in feeds:
+        
+        async def process_one(feed_data):
             try:
                 if feed_data is None:
-                    results['failed'] += 1
-                    continue
+                    return {'success': False, 'error': 'None feed data'}
                 feed = self._create_feed_object(feed_data)
                 success = await self.process_feed(feed)
-                if success:
-                    results['processed'] += 1
-                else:
-                    results['failed'] += 1
+                return {'success': success, 'items': 0}  # items count could be returned from process_feed
             except Exception as e:
                 logger.error(f"Feed processing error: {e}")
+                return {'success': False, 'error': str(e)}
+        
+        # Use semaphore to limit concurrency
+        async def process_with_limit(feed_data):
+            async with self._semaphore:
+                return await process_one(feed_data)
+        
+        tasks = [process_with_limit(feed_data) for feed_data in feeds]
+        outcomes = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        for outcome in outcomes:
+            if isinstance(outcome, Exception):
                 results['failed'] += 1
+            elif outcome.get('success'):
+                results['processed'] += 1
+            else:
+                results['failed'] += 1
+        
         logger.info(f"Batch complete: {results}")
         return results
     
@@ -195,5 +227,20 @@ class RSSManager:
         return SimpleFeed(feed_data) if feed_data else SimpleFeed({})
     
     async def cleanup(self):
-        pass
+        """Cleanup resources (close sessions, etc.)."""
+        try:
+            if hasattr(self.media_extractor, 'cleanup'):
+                await self.media_extractor.cleanup()
+        except Exception as e:
+            logger.warning(f"Error during media_extractor cleanup: {e}")
+        try:
+            if hasattr(self.storage, 'cleanup'):
+                await self.storage.cleanup()
+        except Exception as e:
+            logger.warning(f"Error during storage cleanup: {e}")
+        try:
+            if hasattr(self.duplicate_detector, 'cleanup'):
+                await self.duplicate_detector.cleanup()
+        except Exception as e:
+            logger.warning(f"Error during duplicate_detector cleanup: {e}")
 

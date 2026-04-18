@@ -1012,7 +1012,7 @@ services:
       context: .
       target: development
     environment:
-      - FIREFEED_API_BASE_URL=http://mock-api:8000
+      - API_BASE_URL=http://mock-api:8000
       - FIREFEED_API_SERVICE_TOKEN=test-key
       - LOG_LEVEL=DEBUG
     volumes:

@@ -11,7 +11,7 @@ from pathlib import Path
 def get_config():
     """Return a simple config object with environment variables."""
     return type('Config', (), {
-        'api_base_url': os.getenv("FIREFEED_API_BASE_URL", "http://localhost:8001"),
+        'api_base_url': os.getenv("API_BASE_URL", "http://localhost:8001"),
         'rss': type('RSSConfig', (), {
             'max_concurrent_feeds': int(os.getenv("RSS_MAX_CONCURRENT_FEEDS", "10")),
             'request_timeout': float(os.getenv("RSS_REQUEST_TIMEOUT", "15"))
@@ -22,7 +22,7 @@ def get_config():
 # API Configuration Properties
 def get_base_url() -> str:
     """Get FireFeed API base URL."""
-    return os.getenv("FIREFEED_API_BASE_URL", "http://localhost:8001")
+    return os.getenv("API_BASE_URL", "http://localhost:8001")
 
 def get_api_key() -> Optional[str]:
     """Get FireFeed API key."""

@@ -39,12 +39,13 @@ class RSSParserConfig:
     @property
     def max_concurrent_feeds(self) -> int:
         """Get max concurrent feeds."""
-        return getattr(self.config.rss, 'max_concurrent_feeds', 10)
+        # Read directly from env to match documented variable
+        return int(os.getenv("MAX_CONCURRENT_FEEDS", "10"))
     
     @property
     def fetch_timeout(self) -> float:
         """Get fetch timeout."""
-        return getattr(self.config.rss, 'request_timeout', 15.0)
+        return float(os.getenv("FETCH_TIMEOUT", "15.0"))
     
     @property
     def parser_timeout(self) -> float:
@@ -67,18 +68,36 @@ class RSSParserConfig:
         return 5.0
 
     @property
-    def redis_url(self) -> str:
-        """Get Redis connection URL."""
-        redis_host = os.getenv("REDIS_HOST", "localhost")
-        redis_port = os.getenv("REDIS_PORT", "6379")
-        redis_password = os.getenv("REDIS_PASSWORD", "")
-        redis_db = os.getenv("REDIS_DB", "0")
-        
-        url = f"redis://{redis_host}:{redis_port}/{redis_db}"
-        if redis_password:
-            url = f"redis://:{redis_password}@{redis_host}:{redis_port}/{redis_db}"
-        
-        return url
+    def redis_host(self) -> str:
+        """Get Redis host."""
+        return os.getenv("REDIS_HOST", "localhost")
+    
+    @property
+    def redis_port(self) -> int:
+        """Get Redis port."""
+        return int(os.getenv("REDIS_PORT", "6379"))
+    
+    @property
+    def redis_password(self) -> Optional[str]:
+        """Get Redis password."""
+        pwd = os.getenv("REDIS_PASSWORD", "")
+        return pwd if pwd else None
+    
+    @property
+    def redis_db(self) -> int:
+        """Get Redis database number."""
+        return int(os.getenv("REDIS_DB", "0"))
+    
+    def get_redis_connection_params(self) -> dict:
+        """Get Redis connection parameters (password not included in URL for security)."""
+        return {
+            "host": self.redis_host,
+            "port": self.redis_port,
+            "password": self.redis_password,
+            "db": self.redis_db,
+            "encoding": "utf-8",
+            "decode_responses": True
+        }
     
     @property
     def images_root_dir(self) -> str:
