@@ -1,12 +1,14 @@
-"""Models package for FireFeed RSS Parser."""
+"""Models package for FireFeed RSS Parser.
 
-from firefeed_core.models.rss_models import RSSFeed
+Use models from firefeed_core.models for consistency and DRY principle.
+"""
 
-class DummyRSSItem(dict):
-    """Dummy RSSItem - dict subclass for API compatibility."""
-    pass
+# Import models from firefeed_core
+from firefeed_core.models.rss_models import RSSFeed as CoreRSSFeed, RSSItem as CoreRSSItem
 
-RSSItem = DummyRSSItem
+# Aliases for backward compatibility
+RSSFeed = CoreRSSFeed
+RSSItem = CoreRSSItem
 
 __all__ = [
     "RSSFeed",
